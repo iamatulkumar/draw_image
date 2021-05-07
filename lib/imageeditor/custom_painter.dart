@@ -33,7 +33,7 @@ class CustomePainter extends CustomPainter {
     @required this.strokeColor,
     @required this.strokeWidth,
     @required this.myBackground,
-    this.mScaleFactor = 1.0,
+    this.mScaleFactor,
     this.isClear = true,
     this.posPoint
   }) {
@@ -45,32 +45,22 @@ class CustomePainter extends CustomPainter {
 
   void paint(Canvas canvas, Size size) {
 
-    final left = (size.width - myBackground.width) / 2;
-    final top = (size.height - myBackground.height) / 2;
-    canvas.translate(left, top);
-    canvas.scale(mScaleFactor, mScaleFactor);
-
+    // canvas.translate(left*mScaleFactor, top*mScaleFactor);
+   // canvas.scale(mScaleFactor,mScaleFactor);
     if(myBackground !=null) {
       final left = (size.width - myBackground.width) / 2;
       final top = (size.height - myBackground.height) / 2;
-      // df = left
-      // dt = top
       canvas.drawImage(myBackground, Offset(left,top), Paint());
     }
+
     if (isClear || points == null || points.length == 0) {
       return;
     }
     for (int i = 0; i < points.length; i++) {
-      // _linePaint..color = points[i].color;
-      // _linePaint..strokeWidth = points[i].strokeWidth;
       List curPoints = points[i].points;
-      // if (curPoints == null || curPoints.length == 0) {
-      //   break;
-      // }
       for (int i = 0; i < curPoints.length - 1; i++) {
         if (curPoints[i] != null && curPoints[i + 1] != null)
           canvas.drawLine(curPoints[i], curPoints[i + 1], _linePaint);
-//      canvas.drawPoints(PointMode.polygon, curPoints, _linePaint);
       }
     }
   }

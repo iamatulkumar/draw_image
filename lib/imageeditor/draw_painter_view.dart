@@ -2,13 +2,16 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_app/imageeditor/custom_painter.dart';
+import 'package:flutter_app/imageeditor/zoomwidget/ZoomWidget.dart';
 import 'dart:ui' as ui show Image;
 import 'package:vector_math/vector_math_64.dart' show Vector3;
 
 class DrawPainterView extends StatefulWidget {
   final ui.Image file;
+  final File imageFile;
 
-  const DrawPainterView({Key key, @required this.file}) : super(key: key);
+  const DrawPainterView({Key key, @required this.file, this.imageFile})
+      : super(key: key);
 
   @override
   State createState() => _DrawPainterViewState();
@@ -67,6 +70,7 @@ class _DrawPainterViewState extends State<DrawPainterView> {
   }
 
   final transformationController = TransformationController();
+  String velocity = "VELOCITY";
 
   @override
   Widget build(BuildContext context) {
@@ -77,18 +81,31 @@ class _DrawPainterViewState extends State<DrawPainterView> {
             title: Text("Flutter app"),
             centerTitle: true,
           ),
-          body: LayoutBuilder(
-              builder: (BuildContext context, BoxConstraints constraints) {
-            return Container(
-                height: constraints.maxHeight,
-                width: constraints.maxWidth,
-                alignment: Alignment.center,
-                child: FittedBox(
-                    child: SizedBox(
-                        width: widget.file.width.toDouble(),
-                        height: widget.file.height.toDouble(),
-                        child: _buildCanvas(widget.file))));
-          }),
+          body: Center(
+            child:
+            FittedBox(
+                child: SizedBox(
+                    width: widget.file.width.toDouble(),
+                    height: widget.file.height.toDouble(),
+                    child: LayoutBuilder(builder: (BuildContext context, BoxConstraints constraints){
+                      print("constraints "+ constraints.maxHeight.toString() );
+                      return _buildCanvas (widget.file);
+                }))),
+            // Container(
+            //   child : ZoomWidget(
+            //     width: widget.file.width.toDouble(),
+            //     height: widget.file.height.toDouble(),
+            //     backgroundColor: Colors.white,
+            //     scrollWeight: 10.0,
+            //     centerOnScale: true,
+            //     enableScroll: true,
+            //     onPositionUpdate: (ofset) {
+            //       print(ofset);
+            //     },
+            //     child: buildCanvaswithZoom (widget.file)
+            //   ),
+            // ),
+          ),
           floatingActionButton: Column(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -133,12 +150,12 @@ class _DrawPainterViewState extends State<DrawPainterView> {
                   localPosition.dx < width &&
                   localPosition.dy < height) {
                 state(() {
-                  // print('onPanUpdate' +
-                  //     localPosition.toString() +
-                  //     "  " +
-                  //     curFrame.toString() +
-                  //     " " +
-                  //     isClear.toString());
+                  print('onPanUpdate' +
+                      localPosition.toString() +
+                      "  " +
+                      referenceBox.localToGlobal(event.position).toString() +
+                      " " +
+                      isClear.toString());
 
                   points[curFrame].points.add(localPosition);
                 });
@@ -152,37 +169,51 @@ class _DrawPainterViewState extends State<DrawPainterView> {
           },
           child: RepaintBoundary(
             child: InteractiveViewer(
-              transformationController: transformationController,
-              // pass the transformation controller
-              onInteractionEnd: (details) {
-                setState(() {
-                  transformationController.toScene(Offset
-                      .zero); // return to normal size after scaling has ended
-                });
-              },
-              minScale: 0.1,
-              // min scale
-              maxScale: 4.0,
-              // max scale
-              scaleEnabled: true,
-              panEnabled: false,
-              boundaryMargin: EdgeInsets.only(left: 4, right: 4, top: 8, bottom: 8),
-              child: CustomPaint(
-                painter: CustomePainter(
-                    points: points,
-                    strokeColor: selectedColor,
-                    strokeWidth: strokeWidth,
-                    isClear: isClear,
-                    mScaleFactor: _scale,
-                    posPoint: PosPoint(mPosX, mPosY),
-                    myBackground: file),
-              ),
-            ),
+                alignPanAxis: true,
+                transformationController: transformationController,
+                onInteractionStart: (stateDetails) {
+                  // print("onInteractionStart " +
+                  //     stateDetails.localFocalPoint.toString());
+                },
+                onInteractionUpdate: (stateDetails) {
+                  print("onInteractionUpdate " +
+                      transformationController.value
+                          .getMaxScaleOnAxis()
+                          .toString());
+
+                  _scale = transformationController.value.getMaxScaleOnAxis();
+                },
+                onInteractionEnd: (ScaleEndDetails endDetails) {
+                  // print(endDetails.velocity);
+                  // print(endDetails.velocity);
+                  setState(() {
+                    velocity = endDetails.velocity.toString();
+                    // transformationController.toScene(Offset
+                    //     .zero); // return to normal size after scaling has ended
+                  });
+                },
+                // max scale
+                minScale: 1.0,
+                maxScale: 2.0,
+                scaleEnabled: true,
+                panEnabled: false,
+                boundaryMargin:
+                    EdgeInsets.only(left: 4, right: 4, top: 8, bottom: 8),
+                child: CustomPaint(
+                  painter: CustomePainter(
+                      points: points,
+                      strokeColor: selectedColor,
+                      strokeWidth: strokeWidth,
+                      isClear: isClear,
+                      mScaleFactor: _scale,
+                      posPoint: PosPoint(mPosX, mPosY),
+                      myBackground: file),
+                )),
           ));
     });
   }
 
-  Widget buildCanvas(ui.Image file) {
+  Widget buildCanvaswithZoom(ui.Image file) {
     return StatefulBuilder(builder: (context, state) {
       return Listener(
         onPointerDown: (PointerDownEvent event) {
@@ -229,21 +260,6 @@ class _DrawPainterViewState extends State<DrawPainterView> {
             origin: Offset(width / 2, height / 2),
             alignment: Alignment.center,
             child: RepaintBoundary(
-              child: InteractiveViewer(
-                transformationController: transformationController,
-                // pass the transformation controller
-                onInteractionEnd: (details) {
-                  setState(() {
-                    transformationController.toScene(Offset
-                        .zero); // return to normal size after scaling has ended
-                  });
-                },
-                minScale: 0.1,
-                // min scale
-                maxScale: 4.0,
-                // max scale
-                scaleEnabled: true,
-                panEnabled: true,
                 child: CustomPaint(
                   painter: CustomePainter(
                       points: points,
@@ -254,35 +270,129 @@ class _DrawPainterViewState extends State<DrawPainterView> {
                       posPoint: PosPoint(mPosX, mPosY),
                       myBackground: file),
                   child: GestureDetector(
-                    onHorizontalDragUpdate: (details) {
-                      print("onHorizontalDragUpdate" +
-                          details.localPosition.toString());
-                    },
-                    onDoubleTap: () {
-                      _scale = 1.0;
-                      mPosX = 0;
-                      mPosY = 0;
-                      setState(() {});
-                    },
+                    // onHorizontalDragUpdate: (details) {
+                    //   print("onHorizontalDragUpdate" +
+                    //       details.localPosition.toString());
+                    // },
+                    // onDoubleTap: () {
+                    //   _scale = 1.0;
+                    //   mPosX = 0;
+                    //   mPosY = 0;
+                    //   setState(() {});
+                    // },
                     // onScaleStart: (ScaleStartDetails details) {
-                    //     _previousScale = _scale;
-                    //     setState(() {});
+                    //   _previousScale = _scale;
+                    //   setState(() {});
                     // },
                     // onScaleUpdate: (ScaleUpdateDetails details) {
-                    //     _scale = _previousScale * details.scale;
-                    //     if (_scale <= _minScale) {
-                    //       _scale = _minScale;
-                    //     }
-                    //     setState(() {});
+                    //   _scale = _previousScale * details.scale;
+                    //   if (_scale <= _minScale) {
+                    //     _scale = _minScale;
+                    //   }
+                    //   setState(() {});
                     // },
                     // onScaleEnd: (ScaleEndDetails details) {
-                    //     _previousScale = 1.0;
-                    //     setState(() {});
+                    //   _previousScale = 1.0;
+                    //   setState(() {});
                     // },
                   ),
-                ),
-              ),
-            )),
+                ))),
+      );
+    });
+  }
+
+  Widget buildCanvas(ui.Image file) {
+    return StatefulBuilder(builder: (context, state) {
+      return Listener(
+        onPointerDown: (PointerDownEvent event) {
+          print(event.pointer);
+          savePointerPosition(event.pointer, event.position);
+          isClear = false;
+          points[curFrame].color = selectedColor;
+          points[curFrame].strokeWidth = strokeWidth;
+        },
+        onPointerUp: (PointerUpEvent event) {
+          clearPointerPosition(event.pointer);
+          points.add(Point(selectedColor, strokeWidth, []));
+          curFrame++;
+        },
+        onPointerMove: (PointerMoveEvent event) {
+          savePointerPosition(event.pointer, event.position);
+          if (touchPositions.length == 1) {
+            RenderBox referenceBox = context.findRenderObject();
+            Offset localPosition = referenceBox.globalToLocal(event.position);
+            if (localPosition.dx > 0 &&
+                localPosition.dy > 0 &&
+                localPosition.dx < width &&
+                localPosition.dy < height) {
+              state(() {
+                // print('onPanUpdate' +
+                //     localPosition.toString() +
+                //     "  " +
+                //     curFrame.toString() +
+                //     " " +
+                //     isClear.toString());
+                //
+                 points[curFrame].points.add(localPosition);
+              });
+            }
+            mLastTouchX = localPosition.dx;
+            mLastTouchY = localPosition.dy;
+          }
+        },
+        onPointerCancel: (opc) {
+          clearPointerPosition(opc.pointer);
+        },
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned(
+              child: Transform.scale(
+                scale: _scale,
+                  origin: Offset(width / 2, height / 2),
+                  alignment: Alignment.center,
+                  child: RepaintBoundary(
+                      child: CustomPaint(
+                    painter: CustomePainter(
+                        points: points,
+                        strokeColor: selectedColor,
+                        strokeWidth: strokeWidth,
+                        isClear: isClear,
+                        mScaleFactor: _scale,
+                        posPoint: PosPoint(mPosX, mPosY),
+                        myBackground: file),
+                    child: GestureDetector(
+                      onHorizontalDragUpdate: (details) {
+                        print("onHorizontalDragUpdate" +
+                            details.localPosition.toString());
+                      },
+                      onDoubleTap: () {
+                        _scale = 1.0;
+                        mPosX = 0;
+                        mPosY = 0;
+                        setState(() {});
+                      },
+                      onScaleStart: (ScaleStartDetails details) {
+                        _previousScale = _scale;
+                        setState(() {});
+                      },
+                      onScaleUpdate: (ScaleUpdateDetails details) {
+                        _scale = _previousScale * details.scale;
+                        if (_scale <= _minScale) {
+                          _scale = _minScale;
+                        }
+
+                        setState(() {});
+                      },
+                      onScaleEnd: (ScaleEndDetails details) {
+                        _previousScale = 1.0;
+                        setState(() {});
+                      },
+                    ),
+                  ))),
+            ),
+          ],
+        ),
       );
     });
   }
